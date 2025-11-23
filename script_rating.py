@@ -598,10 +598,6 @@ def radar_country(country_iso3):
     avec conversion z-score → note /10.
     TOUT EST DANS CETTE PUTAIN DE FONCTION.
     """
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-
     # ------------------------------------------------------------
     # 0. Colonnes utilisées
     # ------------------------------------------------------------
