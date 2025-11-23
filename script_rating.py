@@ -11,7 +11,7 @@ import streamlit as st
 
 # ===================== PARAMÈTRES =====================
 
-data_path = r"./Data.csv"
+data_path = r"./data.csv"
 start_year = 2019
 end_year   = 2024
 years = [str(y) for y in range(start_year, end_year+1)]
