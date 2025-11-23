@@ -345,6 +345,7 @@ def compute_Zscore():
 
     return df_model
 
+@st.cache_data(show_spinner=True)
 def df_10countries():
 
     countries = ["USA", "DEU", "FRA", "JPN", "CAN", "IND", "BRA", "ZAF", "IDN", "MAR"]
@@ -749,7 +750,7 @@ def time_series(indicator, countries=None):
 
     return fig
 
-
+@st.cache_data(show_spinner=True)
 def compute_slopes():
     """
     Calcule les pentes (tendances) macro pour chaque pays
@@ -836,3 +837,173 @@ def make_comment(row):
         f"Point fort : {best[0]} ({best[1]:.2f}). "
         f"Point faible : {worst[0]} ({worst[1]:.2f})."
     )
+
+
+@st.cache_data(show_spinner=True)
+def _load_outlook_imf_panel(excel_path: str = r"./outlook datas.xlsx"):
+    """
+    Charge le fichier IMF Outlook et renvoie le panel CountryCode / COUNTRY / Annee / variables.
+    Cette fonction est cachée et réutilisée grâce au cache Streamlit.
+    """
+    df_raw = pd.read_excel(excel_path)
+
+    # Colonnes d'années
+    year_cols = [c for c in df_raw.columns if str(c).isdigit()]
+
+    # Mise en long
+    df_long = df_raw.melt(
+        id_vars=["DATASET", "SERIES_CODE", "OBS_MEASURE", "COUNTRY",
+                 "INDICATOR", "FREQUENCY", "SCALE"],
+        value_vars=year_cols,
+        var_name="Annee",
+        value_name="Value"
+    )
+    df_long["Annee"] = df_long["Annee"].astype(int)
+
+    # Extraction codes (CountryCode.VarCode)
+    split_code = df_long["SERIES_CODE"].str.split(".", expand=True)
+    df_long["CountryCode"] = split_code[0]
+    df_long["VarCode"] = split_code[1]
+
+    # Mapping IMF → variables
+    var_map = {
+        "GGXWDG_NGDP": "Dette_publique_PIB",
+        "NGSD_NGDP":   "Epargne_nationale_PIB",
+        "GGXCNL_NGDP": "Solde_budgetaire_PIB",
+        "NGDP_RPCH":   "Croissance_PIB",
+        "PCPIPCH":     "Inflation_CPI",
+        "LUR":         "Taux_chomage",
+        "BCA_NGDPD":   "BalanceCourante_PIB"
+    }
+
+    df_long = df_long[df_long["VarCode"].isin(var_map.keys())].copy()
+    df_long["Variable"] = df_long["VarCode"].map(var_map)
+
+    # Panel pays/année
+    df_panel = df_long.pivot_table(
+        index=["CountryCode", "COUNTRY", "Annee"],
+        columns="Variable",
+        values="Value"
+    ).reset_index()
+
+    df_panel = df_panel.sort_values(["CountryCode", "Annee"])
+    return df_panel
+
+def outlook_imf(country_code: str, excel_path: str = r"./outlook datas.xlsx"):
+    """
+    Calcule l'outlook IMF pour un pays (code ISO3/IMF, ex 'USA', 'FRA')
+    et renvoie 3 figures matplotlib + score + classification.
+
+    Retourne :
+        fig_dette, fig_epargne, fig_autres, outlook_score, outlook_class
+    """
+    # ---------- paramètres / mappings ----------
+    indicators_weights = {
+        "Solde_budgetaire_PIB":   +0.35,
+        "Dette_publique_PIB":     -0.20,
+        "Epargne_nationale_PIB":  +0.10,
+        "BalanceCourante_PIB":    +0.10,
+        "Croissance_PIB":         +0.10,
+        "Inflation_CPI":          -0.07,
+        "Taux_chomage":           -0.08
+    }
+
+    pretty_names = {
+        "Solde_budgetaire_PIB":  "Solde budgétaire (% PIB)",
+        "Dette_publique_PIB":    "Dette publique (% PIB)",
+        "Epargne_nationale_PIB": "Épargne nationale (% PIB)",
+        "BalanceCourante_PIB":   "Balance courante (% PIB)",
+        "Croissance_PIB":        "Croissance PIB (%)",
+        "Inflation_CPI":         "Inflation CPI (%)",
+        "Taux_chomage":          "Chômage (%)"
+    }
+
+    # helpers internes
+    def slope_last_years(series, n=5):
+        s = series.dropna()
+        if len(s) < n:
+            return np.nan
+        y = s.tail(n).values
+        x = np.arange(len(y))
+        return np.polyfit(x, y, 1)[0]
+
+    def classify_outlook(score):
+        if score > 0.20:
+            return "POSITIVE"
+        elif score < -0.20:
+            return "NEGATIVE"
+        return "STABLE"
+
+    # ---------- 1. Chargement du panel via le cache ----------
+    df_panel = _load_outlook_imf_panel(excel_path)
+
+    # ---------- 2. Filtre sur le pays demandé ----------
+    df_c = df_panel[df_panel["CountryCode"] == country_code].copy()
+    if df_c.empty:
+        raise ValueError(f"Aucune donnée IMF Outlook pour le pays {country_code}")
+
+    df_c = df_c.set_index("Annee").sort_index()
+    country_name = df_c["COUNTRY"].iloc[0]
+
+    # ---------- 3. Score d'outlook ----------
+    outlook_score = 0.0
+    for ind, weight in indicators_weights.items():
+        if ind not in df_c.columns:
+            continue
+        slope = slope_last_years(df_c[ind], 5)
+        if not np.isnan(slope):
+            outlook_score += slope * weight
+
+    outlook_class = classify_outlook(outlook_score)
+
+    # ---------- 4. Graphique 1 : dette publique ----------
+    fig_dette = None
+    if "Dette_publique_PIB" in df_c.columns and not df_c["Dette_publique_PIB"].dropna().empty:
+        fig_dette, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(df_c.index, df_c["Dette_publique_PIB"], marker="o")
+        ax.set_title(f"{country_name} — Dette publique (% PIB)")
+        ax.set_xlabel("Année")
+        ax.set_ylabel("Dette publique (% PIB)")
+        ax.grid(True, linestyle="--", alpha=0.3)
+        fig_dette.tight_layout()
+
+    # ---------- 5. Graphique 2 : épargne nationale ----------
+    fig_epargne = None
+    if "Epargne_nationale_PIB" in df_c.columns and not df_c["Epargne_nationale_PIB"].dropna().empty:
+        fig_epargne, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(df_c.index, df_c["Epargne_nationale_PIB"], marker="o")
+        ax.set_title(f"{country_name} — Épargne nationale (% PIB)")
+        ax.set_xlabel("Année")
+        ax.set_ylabel("Épargne nationale (% PIB)")
+        ax.grid(True, linestyle="--", alpha=0.3)
+        fig_epargne.tight_layout()
+
+    # ---------- 6. Graphique 3 : autres indicateurs ----------
+    others = [
+        "Solde_budgetaire_PIB",
+        "Croissance_PIB",
+        "Inflation_CPI",
+        "Taux_chomage",
+        "BalanceCourante_PIB"
+    ]
+
+    fig_autres, ax = plt.subplots(figsize=(10, 6))
+    plotted_any = False
+    for ind in others:
+        if ind in df_c.columns and not df_c[ind].dropna().empty:
+            ax.plot(df_c.index, df_c[ind], marker="o",
+                    label=pretty_names.get(ind, ind))
+            plotted_any = True
+
+    if not plotted_any:
+        plt.close(fig_autres)
+        fig_autres = None
+    else:
+        ax.set_title(f"{country_name} ({country_code}) — Autres indicateurs Outlook")
+        ax.set_xlabel("Année")
+        ax.grid(True, linestyle="--", alpha=0.3)
+        ax.legend()
+        fig_autres.tight_layout()
+
+    return fig_dette, fig_epargne, fig_autres, outlook_score, outlook_class
+

@@ -6,6 +6,7 @@ page = st.sidebar.radio(
     ["Agences", "Radar", "Données", "Indicateurs dans le temps", "Tous les pays"]
 )
 
+
 # Tout ce qui charge / calcule est dans le spinner
 with st.spinner("Chargement…"):
 
@@ -40,6 +41,26 @@ with st.spinner("Chargement…"):
         st.write(comment)
 
         st.pyplot(sr.radar_country(pays))
+
+        # ================== GRAPHIQUES IMF OUTLOOK ==================
+        st.subheader("Outlook IMF — séries historiques")
+
+        try:
+            fig_dette, fig_epargne, fig_autres, score_imf, class_imf = sr.outlook_imf(pays)
+
+            st.write(f"Score Outlook IMF : {score_imf:.3f} ({class_imf})")
+
+            if fig_dette is not None:
+                st.pyplot(fig_dette)
+            if fig_epargne is not None:
+                st.pyplot(fig_epargne)
+            if fig_autres is not None:
+                st.pyplot(fig_autres)
+
+        except FileNotFoundError:
+            st.info("Fichier Outlook IMF introuvable (vérifie le chemin dans outlook_imf).")
+        except ValueError as e:
+            st.info(str(e))
 
     elif page == "Indicateurs dans le temps":
         st.header("Évolution d’un indicateur dans le temps")
