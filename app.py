@@ -6,6 +6,7 @@ page = st.sidebar.radio(
     ["Agences", "Radar", "Données", "Indicateurs dans le temps", "Tous les pays"]
 )
 
+
 # Tout ce qui charge / calcule est dans le spinner
 with st.spinner("Chargement…"):
 

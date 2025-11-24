@@ -11,12 +11,13 @@ import streamlit as st
 
 # ===================== PARAMÈTRES =====================
 
-data_path = r"./data.csv"
+data_path = r"data/data.csv"
+data_imf_path = r"data/outlook_datas.xlsx"
 start_year = 2019
 end_year   = 2024
 years = [str(y) for y in range(start_year, end_year+1)]
 
-# ------------------ Mapping IMF → ISO3 ------------------
+# ------------------ Mapping IMF → ISO3 ------------------  
 
 mapping_imf_to_iso = {
     "united states": "USA","canada": "CAN","mexico": "MEX","guatemala": "GTM",
@@ -840,7 +841,7 @@ def make_comment(row):
 
 
 @st.cache_data(show_spinner=True)
-def _load_outlook_imf_panel(excel_path: str = r"./outlook datas.xlsx"):
+def _load_outlook_imf_panel(excel_path: str = data_imf_path):
     """
     Charge le fichier IMF Outlook et renvoie le panel CountryCode / COUNTRY / Annee / variables.
     Cette fonction est cachée et réutilisée grâce au cache Streamlit.
@@ -889,7 +890,7 @@ def _load_outlook_imf_panel(excel_path: str = r"./outlook datas.xlsx"):
     df_panel = df_panel.sort_values(["CountryCode", "Annee"])
     return df_panel
 
-def outlook_imf(country_code: str, excel_path: str = r"./outlook datas.xlsx"):
+def outlook_imf(country_code: str, excel_path: str = data_imf_path):
     """
     Calcule l'outlook IMF pour un pays (code ISO3/IMF, ex 'USA', 'FRA')
     et renvoie 3 figures matplotlib + score + classification.
