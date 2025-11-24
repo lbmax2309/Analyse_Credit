@@ -2,10 +2,6 @@ import streamlit as st
 import script_rating as sr 
 from PIL import Image
 
-logo = Image.open("assets/logo_assas_dark_mode.png")
-st.sidebar.image(logo, width=180)
-
-
 # ========== CONFIG GLOBALE ==========
 st.set_page_config(
     page_title="Modèle de notation souveraine",
@@ -18,7 +14,6 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Réduire légèrement la largeur de la sidebar */
     [data-testid="stSidebar"] {
         background-color: #0f172a; /* bleu nuit */
         color: white;
@@ -27,7 +22,6 @@ st.markdown(
         color: #e5e7eb !important;
     }
 
-    /* Titres principaux */
     .main-title {
         font-size: 2rem;
         font-weight: 700;
@@ -38,8 +32,6 @@ st.markdown(
         color: #6b7280;
         margin-bottom: 1.5rem;
     }
-
-    /* Encadrer légèrement les blocs */
     .card {
         padding: 1.2rem 1.4rem;
         border-radius: 0.7rem;
@@ -52,7 +44,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ========== SIDEBAR ==========
+# ========== SIDEBAR (sans logo) ==========
 st.sidebar.title("🏦 Modèle de notation souveraine")
 
 page = st.sidebar.radio(
@@ -60,26 +52,49 @@ page = st.sidebar.radio(
     ["Agences", "Radar", "Données", "Indicateurs dans le temps", "Tous les pays"]
 )
 
-# ========== EN-TÊTE GÉNÉRALE ==========
-st.markdown('<div class="main-title">Tableau de bord souverain</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="main-subtitle">Explore les notations, les scores de solvabilité et '
-    "les indicateurs macroéconomiques pour l’ensemble des pays couverts.</div>",
-    unsafe_allow_html=True,
-)
-
-# Tout ce qui charge / calcule est dans le spinner
+# ========== CONTENU ==========
 with st.spinner("Chargement des données…"):
 
     df = sr.countries10_Zscore()
     latest = df[df["Annee"] == df["Annee"].max()]
 
+    # ========== PAGE ACCUEIL ==========
+    if page == "Accueil":
+        st.markdown('<div class="main-title">Tableau de bord souverain</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="main-subtitle">'
+            "Outil interne pour explorer les notations souveraines, "
+            "les scores de solvabilité et les indicateurs macroéconomiques."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        col1, col2 = st.columns([1.4, 1])
+        with col1:
+            st.markdown(
+                """
+                ### Que permet ce modèle ?
+
+                - 📊 Comparer la notation du modèle avec les agences
+                - 📍 Analyser un pays en détail (radar des facteurs, Outlook)
+                - ⏱ Suivre l’évolution des indicateurs dans le temps
+                - 📂 Télécharger les jeux de données pour analyse externe
+                """
+            )
+
+        with col2:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.subheader("🔎 Accès rapide")
+            st.markdown("• **Agences** : comparer modèle vs agences")
+            st.markdown("• **Radar** : vue détaillée par pays")
+            st.markdown("• **Données** : export CSV")
+            st.markdown('</div>', unsafe_allow_html=True)
+
     # ========== PAGE AGENCES ==========
-    if page == "Agences":
+    elif page == "Agences":
         st.header("📊 Comparaison avec les agences de notation")
         st.caption("Écart entre la notation du modèle et celles des principales agences.")
-        with st.container():
-            st.pyplot(sr.compare_agencies_ratings())
+        st.pyplot(sr.compare_agencies_ratings(), use_container_width=True)
 
     # ========== PAGE RADAR ==========
     elif page == "Radar":
@@ -89,10 +104,8 @@ with st.spinner("Chargement des données…"):
         with col_select:
             pays = st.selectbox("Choisir un pays :", latest["Pays"].unique())
 
-        # Récupérer la ligne du pays
         df_country = latest[latest["Pays"] == pays].iloc[0]
 
-        # Bloc métriques
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Notation modèle", df_country["Rating_modele"])
@@ -105,35 +118,34 @@ with st.spinner("Chargement des données…"):
         slopes = sr.compute_slopes()
         country_slopes = slopes[slopes["Pays"] == pays].iloc[0]
 
-        outlook = sr.compute_outlook({**df_country, **country_slopes})
-        comment = sr.make_comment({**df_country, **country_slopes})
+        inputs = {**df_country.to_dict(), **country_slopes.to_dict()}
+        outlook = sr.compute_outlook(inputs)
+        comment = sr.make_comment(inputs)
 
         st.subheader("🧭 Outlook du modèle")
         st.write("**Outlook :**", outlook)
         st.write(comment)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Radar + graphiques IMF côte à côte (si possible)
         radar_col, imf_col = st.columns([1.3, 1.7])
 
         with radar_col:
             st.subheader("Radar des facteurs")
-            st.pyplot(sr.radar_country(pays))
+            st.pyplot(sr.radar_country(pays), use_container_width=True)
 
         with imf_col:
             st.subheader("📈 Outlook IMF — séries historiques")
-
             try:
                 fig_dette, fig_epargne, fig_autres, score_imf, class_imf = sr.outlook_imf(pays)
 
                 st.info(f"**Score Outlook IMF :** {score_imf:.3f} ({class_imf})")
 
                 if fig_dette is not None:
-                    st.pyplot(fig_dette)
+                    st.pyplot(fig_dette, use_container_width=True)
                 if fig_epargne is not None:
-                    st.pyplot(fig_epargne)
+                    st.pyplot(fig_epargne, use_container_width=True)
                 if fig_autres is not None:
-                    st.pyplot(fig_autres)
+                    st.pyplot(fig_autres, use_container_width=True)
 
             except FileNotFoundError:
                 st.info("Fichier Outlook IMF introuvable (vérifie le chemin dans outlook_imf).")
@@ -143,15 +155,13 @@ with st.spinner("Chargement des données…"):
     # ========== PAGE INDICATEURS DANS LE TEMPS ==========
     elif page == "Indicateurs dans le temps":
         st.header("⏱ Évolution d’un indicateur dans le temps")
-
         ind = st.selectbox(
             "Choisir un indicateur",
             sr.valid_indicators,
-            key="selectbox_time_series"
+            key="selectbox_time_series",
         )
-
         st.caption("Série historique pour l’ensemble des pays (ou selon le paramétrage de la fonction).")
-        st.pyplot(sr.time_series(ind))
+        st.pyplot(sr.time_series(ind), use_container_width=True)
 
     # ========== PAGE DONNÉES ==========
     elif page == "Données":
@@ -167,7 +177,7 @@ with st.spinner("Chargement des données…"):
                 "📥 Télécharger les données 2024 (CSV)",
                 csv,
                 "donnees_2024.csv",
-                "text/csv"
+                "text/csv",
             )
 
         with tab2:
@@ -179,7 +189,7 @@ with st.spinner("Chargement des données…"):
                 "📥 Télécharger toutes les données (1984–2024)",
                 csv_all,
                 "donnees_1984_2024.csv",
-                "text/csv"
+                "text/csv",
             )
 
         with tab3:
@@ -191,7 +201,7 @@ with st.spinner("Chargement des données…"):
                 "📥 Télécharger dataset notation (CSV)",
                 csv_model,
                 "dataset_notation.csv",
-                "text/csv"
+                "text/csv",
             )
 
     # ========== PAGE TOUS LES PAYS ==========
@@ -201,7 +211,7 @@ with st.spinner("Chargement des données…"):
         df_all_model = sr.compute_Zscore()
         df_all_model_sorted = df_all_model.sort_values(
             "Score_solvabilite",
-            ascending=False
+            ascending=False,
         )
 
         st.caption("Triés par score de solvabilité décroissant.")
@@ -212,7 +222,7 @@ with st.spinner("Chargement des données…"):
             "📥 Télécharger toutes les notations (CSV)",
             csv_all_model,
             "notations_tous_pays.csv",
-            "text/csv"
+            "text/csv",
         )
 
 # ========== PETIT FOOTER ==========

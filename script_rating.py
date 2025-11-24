@@ -834,7 +834,7 @@ def make_comment(row):
     worst = sorted_p[-1]
 
     return (
-        f"Score final : {score:.2f} ({rating}, outlook {outlook}). "
+        # f"Score final : {score:.2f} ({rating}, outlook {outlook}). "
         f"Point fort : {best[0]} ({best[1]:.2f}). "
         f"Point faible : {worst[0]} ({worst[1]:.2f})."
     )
