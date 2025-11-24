@@ -1,6 +1,7 @@
 import streamlit as st
 import script_rating as sr 
 
+st.sidebar.title("🏦 Modèle de notation souveraine")
 page = st.sidebar.radio(
     "Navigation",
     ["Agences", "Radar", "Données", "Indicateurs dans le temps", "Tous les pays"]
@@ -14,7 +15,7 @@ with st.spinner("Chargement…"):
     latest = df[df["Annee"] == df["Annee"].max()]
 
     if page == "Agences":
-        st.header("Comparaison agences")
+        st.header("Comparaison : écart de notation avec les agences")
         st.pyplot(sr.compare_agencies_ratings())
 
     elif page == "Radar":
