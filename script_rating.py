@@ -45,6 +45,14 @@ mapping_imf_to_iso = {
     "cuba": "CUB","haiti": "HTI","jamaica": "JAM","papua new guinea": "PNG"
 }
 
+#Notes agences
+data_agences = {
+        "Pays":      ["USA","DEU","FRA","JPN","CAN","IND","BRA","ZAF","IDN","MAR"],
+        "Moody":     ["Aa1","Aaa","Aa3","A1","Aaa","Baa3","Ba1","Ba2","Baa2","Ba1"],
+        "Fitch":     ["AA+","AAA","A+","A","AA+","BBB-","BB","BB-","BBB","BB+"],
+        "S&P":       ["AA+","AAA","A+","A+","AAA","BBB","BB","BB","BBB","BBB-"]
+    }
+
 # Fonction nettoyage noms IMF
 def clean_imf_country(x):
     if pd.isna(x):
@@ -524,12 +532,7 @@ def countries10_Zscore():
 
 def compare_agencies_ratings():
     # Notations agences (2024)
-    data_agences = {
-        "Pays":      ["USA","DEU","FRA","JPN","CAN","IND","BRA","ZAF","IDN","MAR"],
-        "Moody":     ["Aa1","Aaa","Aa3","A1","Aaa","Baa3","Ba1","Ba2","Baa2","Ba1"],
-        "Fitch":     ["AA+","AAA","A+","A","AA+","BBB-","BB","BB-","BBB","BB+"],
-        "S&P":       ["AA+","AAA","A+","A+","AAA","BBB","BB","BB","BBB","BBB-"]
-    }
+    
     df_ag = pd.DataFrame(data_agences)
 
     # conversion de notation texte en score numérique

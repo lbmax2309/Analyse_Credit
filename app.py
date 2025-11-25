@@ -111,10 +111,15 @@ with st.spinner("Chargement des données…"):
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Notation modèle", df_country["Rating_modele"])
+            st.metric("Note Moody", sr.data_agences[pays][0])
         with col2:
             st.metric("Score de solvabilité", round(df_country["Score_solvabilite"], 2))
+            st.metric("Note Fitch", sr.data_agences[pays][1])
+
         with col3:
             st.metric("Année", int(df_country["Annee"]))
+            st.metric("Note S&P", sr.data_agences[pays][2])
+
 
         # Slopes + outlook + commentaire
         slopes = sr.compute_slopes()
