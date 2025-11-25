@@ -10,7 +10,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Un peu de style global (optionnel)
+
+# style pour la page
 st.markdown(
     """
     <style>
@@ -49,7 +50,7 @@ st.sidebar.title("🏦 Modèle de notation souveraine")
 
 page = st.sidebar.radio(
     "📌 Navigation",
-    ["Agences", "Radar", "Données", "Indicateurs dans le temps", "Tous les pays"]
+    ["Accueil","Agences", "Analyse par pays", "Données", "Indicateurs dans le temps", "Tous les pays"]
 )
 
 # ========== CONTENU ==========
@@ -83,10 +84,9 @@ with st.spinner("Chargement des données…"):
             )
 
         with col2:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
             st.subheader("🔎 Accès rapide")
             st.markdown("• **Agences** : comparer modèle vs agences")
-            st.markdown("• **Radar** : vue détaillée par pays")
+            st.markdown("• **Analyse par pays** : vue détaillée par pays")
             st.markdown("• **Données** : export CSV")
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -95,10 +95,12 @@ with st.spinner("Chargement des données…"):
         st.header("📊 Comparaison avec les agences de notation")
         st.caption("Écart entre la notation du modèle et celles des principales agences.")
         st.pyplot(sr.compare_agencies_ratings(), use_container_width=True)
+        st.caption("*Echelle de notation transposée allant de 1(meilleur) à 22(moins bon)"
+                   "  \n Correspond à la note de notre modèle moins la moyenne des de notes de S&P, Moody's et Fitch")
 
-    # ========== PAGE RADAR ==========
-    elif page == "Radar":
-        st.header("📍 Radar par pays")
+    # ========== PAGE Pays ==========
+    elif page == "Analyse par pays":
+        st.header("📍 Analyse par pays")
 
         col_select, col_info = st.columns([1.2, 2])
         with col_select:
@@ -167,6 +169,7 @@ with st.spinner("Chargement des données…"):
     elif page == "Données":
         st.header("📂 Données")
 
+        #page avec 3 onglets
         tab1, tab2, tab3 = st.tabs(["Données 2024", "1984–2024", "Dataset notation"])
 
         with tab1:
@@ -214,9 +217,7 @@ with st.spinner("Chargement des données…"):
             ascending=False,
         )
 
-        st.caption("Triés par score de solvabilité décroissant.")
-        st.dataframe(df_all_model_sorted, use_container_width=True, height=500)
-
+        #bouton pour télécharger le dataframe avec tous les pays
         csv_all_model = df_all_model_sorted.to_csv(index=False).encode("utf-8")
         st.download_button(
             "📥 Télécharger toutes les notations (CSV)",
@@ -224,6 +225,13 @@ with st.spinner("Chargement des données…"):
             "notations_tous_pays.csv",
             "text/csv",
         )
+
+        #plot de la distribution des Z score
+        st.subheader("📈 Distribution des scores de solvabilité")
+        st.pyplot(sr.plot_score_distribution(), use_container_width=True)
+
+        st.caption("Triés par score de solvabilité décroissant.")
+        st.dataframe(df_all_model_sorted, use_container_width=True, height=500)
 
 # ========== PETIT FOOTER ==========
 st.markdown("---")

@@ -141,6 +141,7 @@ def process_dataframe ():
     countries_iso = list(mapping_imf_to_iso.values())
     countries_str = ";".join(countries_iso)
 
+    #API de la banque mondiale
     def fetch_indicator(indicator, name):
         url = (
             f"https://api.worldbank.org/v2/country/{countries_str}/indicator/{indicator}"
@@ -207,6 +208,7 @@ def process_dataframe ():
 
     return df_final
 
+#Calcul des scores normalisés (Z score)
 @st.cache_data(show_spinner=True)
 def compute_Zscore():
     df_clean = process_dataframe()
@@ -279,70 +281,84 @@ def compute_Zscore():
         "USA","DEU","FRA","JPN","CAN","GBR","ITA","ESP","NLD","AUS","CHE",
         "SWE","NOR","DNK","FIN","IRL","KOR","SGP","CZE","PRT","ISR"
     ]).astype(int)
+    df_model["Ressources_naturelles"] = df_model["Pays"].isin([
+        "RUS",  # Russie
+        "USA",  # États-Unis
+        "SAU",  # Arabie Saoudite
+        "CAN",  # Canada
+        "IRN",  # Iran
+        "CHN",  # Chine
+        "BRA",  # Brésil
+        "AUS",  # Australie
+        "IRQ",  # Irak
+        "VEN"   # Venezuela
+    ]).astype(int)
 
-    # ===================== 7) Score de solvabilité =====================
+        # ===================== 7) Score de solvabilité =====================
 
     df_model["Score_solvabilite"] = (
-        + 0.50 * df_model["PIB_par_habitant_z"]
-        + 0.30 * df_model["Croissance_PIB_z"]
-        - 0.20 * df_model["Volatilite_Croissance_z"]
-        - 0.20 * df_model["Inflation_z"]
-        - 0.25 * df_model["Volatilite_Inflation_z"]
-        - 0.15 * df_model["Deficit_budgetaire_PIB_z"]
-        + 0.25 * df_model["Recettes_publiques_PIB_z"]
-        - 0.35 * df_model["Dette_publique_PIB_z"]
-        + 0.25 * df_model["BalanceCourante_PIB_z"]
-        + 0.60 * df_model["Reserves_sur_Importations_z"]
-        + 1.2 * df_model["Stabilite_Politique_z"]
-        + 1.0 * df_model["Efficacite_Gouvernement_z"]
-        + 1.1 * df_model["Etat_de_droit_z"]
-        + 0.8 * df_model["Voix_responsabilisation_z"]
-        - 0.6 * df_model["Corruption_z"]
-        + 0.4 * df_model["Developpe"]
-        + 0.3 * df_model["PIB_total_$_z"]
-        + 0.3 * df_model["Balance_commerciale_z"]
+    + 0.80 * df_model["PIB_par_habitant_z"]
+    + 0.40 * df_model["Croissance_PIB_z"]
+    - 0.20 * df_model["Volatilite_Croissance_z"]
+    - 0.20 * df_model["Inflation_z"]
+    - 0.25 * df_model["Volatilite_Inflation_z"]
+    - 0.25 * df_model["Deficit_budgetaire_PIB_z"]
+    + 0.25 * df_model["Recettes_publiques_PIB_z"]
+    - 0.55 * df_model["Dette_publique_PIB_z"]
+    + 0.25 * df_model["BalanceCourante_PIB_z"]
+    + 0.30 * df_model["Reserves_sur_Importations_z"]
+    + 1.2 * df_model["Stabilite_Politique_z"]
+    + 1.0 * df_model["Efficacite_Gouvernement_z"]
+    + 1.1 * df_model["Etat_de_droit_z"]
+    + 0.8 * df_model["Voix_responsabilisation_z"]
+    - 0.6 * df_model["Corruption_z"]
+    + 0.5 * df_model["Developpe"]
+    + 0.6 * df_model["PIB_total_$_z"]
+    + 0.3 * df_model["Balance_commerciale_z"]
     )
 
     df_model["Score_solvabilite"] += (
-        1.5 * df_model["Monnaie_reserve"]
+        0.4 * df_model["Monnaie_reserve"]
         + 0.2 * df_model["Safe_haven"]
-        + 0.3 * df_model["Euro_core"]
+        + 0.5 * df_model["Euro_core"]
+        + 0.7 * df_model["Ressources_naturelles"]   #  BONUS indep energetique top 10 monde
     )
+
 
     # ===================== 8) Notation =====================
 
-    def map_rating(score):
-        if score > 7.4: return "AAA"
-        if score > 5.6: return "AA+"
-        if score > 4.7: return "AA"
-        if score > 4.0: return "AA-"
-        if score > 3.5: return "A+"
-        if score > 2.7: return "A"
-        if score > 2.0: return "A-"
-        if score > 1.3: return "BBB+"
-        if score > 0.7: return "BBB"
-        if score > 0.0: return "BBB-"
-        if score > -0.3: return "BB+"
-        if score > -0.8: return "BB"
-        if score > -1.5: return "BB-"
-        if score > -2.5: return "B+"
-        if score > -3.5: return "B"
-        if score > -4.5: return "B-"
-        if score > -6.0: return "CCC+"
-        if score > -7.5: return "CCC"
-        if score > -9.0: return "CCC-"
-        if score > -12.0: return "CC"
-        if score > -15.0: return "C"
-        return "D"
+    # Échelle calibrée sur 146 pays (distribution réelle)
+    rating_scale = [
+        (0.98, "AAA"),
+        (0.89, "AA+"),
+        (0.84, "AA"),
+        (0.82, "AA-"),
+        (0.73, "A+"),
+        (0.70, "A"),
+        (0.67, "A-"),
+        (0.62, "BBB+"),
+        (0.58, "BBB"),
+        (0.51, "BBB-"),
+        (0.39, "BB+"),
+        (0.30, "BB"),
+        (0.21, "BB-"),
+        (0.17, "B+"),
+        (0.09, "B"),
+        (0.03, "B-"),
+        (0.01, "CCC+"),
+        (0.00, "CCC")
+    ]
+    # Percentile de chaque pays
+    df_model["Score_percentile"] = df_model["Score_solvabilite"].rank(pct=True)
 
-    df_model["Rating_modele"] = df_model["Score_solvabilite"].apply(map_rating)
+    # Mapping percentile → rating
+    def pct_to_rating(pct):
+        for threshold, rating in rating_scale:
+            if pct >= threshold:
+                return rating
+        return "CCC-"
 
-    # ===================== 9) Export =====================
-
-    # df_clean.to_excel("data_complete_2019_2024.xlsx", index=False)
-    # df_model.sort_values("Score_solvabilite", ascending=False).to_excel(
-    #     "ratings_2019_2024.xlsx", index=False
-    # )
+    df_model["Rating_modele"] = df_model["Score_percentile"].apply(pct_to_rating)
 
     return df_model
 
@@ -572,16 +588,6 @@ def compare_agencies_ratings():
     df_ref["Model_num"] = df_ref["Rating_modele"].map(rating_to_num)
     df_ref["Ecart_model_vs_agences"] = df_ref["Model_num"] - df_ref["Moyenne_agences_num"]
 
-    # bar chart des écarts ---
-    # plt.figure(figsize=(10,6))
-    # plt.bar(df_ref["Pays_nom"], df_ref["Ecart_model_vs_agences"], color="skyblue")
-    # plt.axhline(0, color="black", linewidth=0.8)
-    # plt.xticks(rotation=45)
-    # plt.ylabel("Écart (score modèle – moyenne agences)")
-    # plt.title("Écart de notation : modèle vs moyenne des agences (2024)")
-    # plt.tight_layout()
-    # plt.show()
-
     fig, ax = plt.subplots(figsize=(10,6))
 
     ax.bar(df_ref["Pays_nom"], df_ref["Ecart_model_vs_agences"], color="skyblue")
@@ -598,7 +604,6 @@ def radar_country(country_iso3):
     """
     Affiche 2 radars (macro + institutionnel) pour un pays ISO3
     avec conversion z-score → note /10.
-    TOUT EST DANS CETTE PUTAIN DE FONCTION.
     """
     # ------------------------------------------------------------
     # 0. Colonnes utilisées
@@ -1008,3 +1013,21 @@ def outlook_imf(country_code: str, excel_path: str = data_imf_path):
 
     return fig_dette, fig_epargne, fig_autres, outlook_score, outlook_class
 
+def plot_score_distribution():
+    """
+    Histogramme de la distribution des scores de solvabilité
+    pour tous les pays (année la plus récente = end_year).
+    """
+    df_model = compute_Zscore().copy()
+
+    scores = df_model["Score_solvabilite"].dropna()
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.hist(scores, bins=20)  # tu peux ajuster le nombre de bins
+    ax.set_title(f"Distribution des scores de solvabilité ({end_year})")
+    ax.set_xlabel("Score de solvabilité")
+    ax.set_ylabel("Nombre de pays")
+    ax.grid(alpha=0.3, linestyle="--")
+    fig.tight_layout()
+
+    return fig
