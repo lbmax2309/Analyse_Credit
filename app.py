@@ -130,7 +130,6 @@ with st.spinner("Chargement des données…"):
         comment = sr.make_comment(inputs)
 
         st.subheader("🧭 Outlook du modèle")
-        st.write("**Outlook :**", outlook)
         st.write(comment)
         st.markdown('</div>', unsafe_allow_html=True)
 
